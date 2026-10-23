@@ -1,26 +1,49 @@
+import { useState, useEffect } from 'react';
 import CoinCard from '../components/CoinCard';
 import LimitSelector from '../components/LimitSelector';
 import FilterInput from '../components/FilterInput';
 import SortSelector from '../components/SortSelector';
 import Spinner from '../components/Spinner';
+import { useFavorites } from '../context/FavoritesContext';
 
-const HomePage = ({
-  coins,
-  filter,
-  setFilter,
-  limit,
-  setLimit,
-  sortBy,
-  setSortBy,
-  loading,
-  error,
-}) => {
+const API_URL = import.meta.env.VITE_COINS_API_URL;
+
+const HomePage = () => {
+  const [coins, setCoins] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [limit, setLimit] = useState(10);
+  const [filter, setFilter] = useState('');
+  const [sortBy, setSortBy] = useState('market_cap_desc');
+  const [showFavorites, setShowFavorites] = useState(false);
+
+  const { favorites } = useFavorites();
+
+  useEffect(() => {
+    const fetchCoins = async () => {
+      try {
+        const res = await fetch(
+          `${API_URL}&order=market_cap_desc&per_page=${limit}&page=1&sparkline=false`
+        );
+        if (!res.ok) throw new Error('Failed to fetch data');
+        const data = await res.json();
+        setCoins(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCoins();
+  }, [limit]);
+
   const filteredCoins = coins
     .filter((coin) => {
-      return (
-        coin.name.toLowerCase().includes(filter.toLowerCase()) ||
-        coin.symbol.toLowerCase().includes(filter.toLowerCase())
-      );
+      const matchesSearch = coin.name.toLowerCase().includes(filter.toLowerCase()) ||
+                          coin.symbol.toLowerCase().includes(filter.toLowerCase());
+      const matchesFavorites = showFavorites ? favorites.includes(coin.id) : true;
+      return matchesSearch && matchesFavorites;
     })
     .slice()
     .sort((a, b) => {
@@ -50,6 +73,14 @@ const HomePage = ({
         <FilterInput filter={filter} onFilterChange={setFilter} />
         <LimitSelector limit={limit} onLimitChange={setLimit} />
         <SortSelector sortBy={sortBy} onSortChange={setSortBy} />
+        <label className='favorites-toggle'>
+          <input
+            type='checkbox'
+            checked={showFavorites}
+            onChange={(e) => setShowFavorites(e.target.checked)}
+          />
+          Favorites Only
+        </label>
       </div>
 
       {!loading && !error && (
